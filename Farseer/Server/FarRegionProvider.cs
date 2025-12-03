@@ -5,126 +5,125 @@ using Vintagestory.API.Config;
 using Vintagestory.API.MathTools;
 using Vintagestory.API.Server;
 
-namespace Farseer;
+namespace Farseer.Server;
 
 public delegate void RegionReadyDelegate(FarRegionData regionData);
 
 public class FarRegionProvider : IDisposable
 {
-    public event RegionReadyDelegate RegionReady;
+  public event RegionReadyDelegate RegionReady;
 
-    private FarseerModSystem modSystem;
-    private ICoreServerAPI sapi;
+  private readonly ICoreServerAPI sapi;
 
-    private readonly Dictionary<long, FarRegionData> inMemoryRegionCache = new();
-    private FarRegionDB db;
-    private FarRegionGen generator;
+  private readonly Dictionary<long, FarRegionData> inMemoryRegionCache = [];
+  private readonly FarRegionDB db;
+  private readonly FarRegionGen generator;
 
-    public FarRegionProvider(FarseerModSystem modSystem, ICoreServerAPI sapi)
+  public FarRegionProvider(FarseerModSystem modSystem, ICoreServerAPI sapi)
+  {
+    this.sapi = sapi;
+
+    db = new FarRegionDB(modSystem.Mod.Logger);
+    string errorMessage = null;
+    string path = GetDbFilePath();
+    db.OpenOrCreate(path, ref errorMessage, true, true, false);
+    if (errorMessage != null)
     {
-        this.modSystem = modSystem;
-        this.sapi = sapi;
-
-        this.db = new FarRegionDB(modSystem.Mod.Logger);
-        string errorMessage = null;
-        string path = GetDbFilePath();
-        db.OpenOrCreate(path, ref errorMessage, true, true, false);
-        if (errorMessage != null)
-        {
-            // IDEA: maybe just delete and re-create the entire database here.
-            throw new Exception(string.Format("Cannot open {0}, possibly corrupted. Please fix manually or delete this file to continue playing", path));
-        }
-
-        this.generator = new FarRegionGen(modSystem, sapi);
-        generator.FarRegionGenerated += OnFarRegionGenerated;
+      // IDEA: maybe just delete and re-create the entire database here.
+      throw new Exception(string.Format("Cannot open {0}, possibly corrupted. Please fix manually or delete this file to continue playing", path));
     }
 
-    public void LoadRegion(long regionIdx)
-    {
-        // Check if this region is within the world bounds first.
-        Vec3i regionCoords = sapi.WorldManager.MapRegionPosFromIndex2D(regionIdx);
-        if (regionCoords.X < 0 || regionCoords.Z < 0 || regionCoords.X > sapi.WorldManager.MapSizeX / sapi.WorldManager.RegionSize || regionCoords.Z > sapi.WorldManager.MapSizeZ / sapi.WorldManager.RegionSize)
-        {
-            // modSystem.Mod.Logger.Warning("a region is outside the world! ignoring");
-            return;
-        }
+    generator = new FarRegionGen(modSystem, sapi);
+    generator.FarRegionGenerated += OnFarRegionGenerated;
+  }
 
-        if (inMemoryRegionCache.TryGetValue(regionIdx, out FarRegionData regionDataFromCache))
-        {
-            RegionReady?.Invoke(regionDataFromCache);
-        }
-        else
-        {
-            if (db.GetRegionHeightmap(regionIdx) is FarRegionHeightmap heightmap)
-            {
-                var regionDataFromDB = CreateDataObject(regionIdx, heightmap);
-                inMemoryRegionCache.Add(regionIdx, regionDataFromDB);
-                RegionReady?.Invoke(regionDataFromDB);
-            }
-            else
-            {
-                generator.StartGeneratingRegion(regionIdx);
-            }
-        }
+  public void LoadRegion(long regionIdx)
+  {
+    // Check if this region is within the world bounds first.
+    Vec3i regionCoords = sapi.WorldManager.MapRegionPosFromIndex2D(regionIdx);
+    if (regionCoords.X < 0 || regionCoords.Z < 0 || regionCoords.X > sapi.WorldManager.MapSizeX / sapi.WorldManager.RegionSize || regionCoords.Z > sapi.WorldManager.MapSizeZ / sapi.WorldManager.RegionSize)
+    {
+      // modSystem.Mod.Logger.Warning("a region is outside the world! ignoring");
+      return;
     }
 
-    private void OnFarRegionGenerated(long regionIdx, FarRegionHeightmap generatedHeightmap)
+    if (inMemoryRegionCache.TryGetValue(regionIdx, out FarRegionData regionDataFromCache))
     {
-        db.InsertRegionHeightmap(regionIdx, generatedHeightmap);
-        var newRegionData = CreateDataObject(regionIdx, generatedHeightmap);
-        inMemoryRegionCache.Add(regionIdx, newRegionData);
-        RegionReady?.Invoke(newRegionData);
+      RegionReady?.Invoke(regionDataFromCache);
+    }
+    else
+    {
+      if (db.GetRegionHeightmap(regionIdx) is FarRegionHeightmap heightmap)
+      {
+        var regionDataFromDB = CreateDataObject(regionIdx, heightmap);
+        inMemoryRegionCache.Add(regionIdx, regionDataFromDB);
+        RegionReady?.Invoke(regionDataFromDB);
+      }
+      else
+      {
+        generator.StartGeneratingRegion(regionIdx);
+      }
+    }
+  }
+
+  private void OnFarRegionGenerated(long regionIdx, FarRegionHeightmap generatedHeightmap)
+  {
+    db.InsertRegionHeightmap(regionIdx, generatedHeightmap);
+    var newRegionData = CreateDataObject(regionIdx, generatedHeightmap);
+    inMemoryRegionCache.Add(regionIdx, newRegionData);
+    RegionReady?.Invoke(newRegionData);
+  }
+
+
+  public void PruneRegionCache(HashSet<long> regionsToKeep)
+  {
+    var toRemove = new List<long>();
+    foreach (var regionIdx in inMemoryRegionCache.Keys)
+    {
+      if (!regionsToKeep.Contains(regionIdx))
+      {
+        toRemove.Add(regionIdx);
+      }
     }
 
-
-    public void PruneRegionCache(HashSet<long> regionsToKeep)
+    foreach (var regionIdx in toRemove)
     {
-        var toRemove = new List<long>();
-        foreach (var regionIdx in inMemoryRegionCache.Keys)
-        {
-            if (!regionsToKeep.Contains(regionIdx))
-            {
-                toRemove.Add(regionIdx);
-            }
-        }
-
-        foreach (var regionIdx in toRemove)
-        {
-            inMemoryRegionCache.Remove(regionIdx);
-        }
-
-        generator.CancelTasksNotIn(regionsToKeep);
+      inMemoryRegionCache.Remove(regionIdx);
     }
 
-    public void Reprioritize(Dictionary<long, int> regionPriorities)
-    {
-        generator.SortTasksByPriority(regionPriorities);
-    }
+    generator.CancelTasksNotIn(regionsToKeep);
+  }
 
-    private string GetDbFilePath()
-    {
-        string path = Path.Combine(GamePaths.DataPath, "Farseer");
-        GamePaths.EnsurePathExists(path);
-        return Path.Combine(path, sapi.World.SavegameIdentifier + ".db");
-    }
+  public void Reprioritize(Dictionary<long, int> regionPriorities)
+  {
+    generator.SortTasksByPriority(regionPriorities);
+  }
 
-    private FarRegionData CreateDataObject(long regionIdx, FarRegionHeightmap heightmap)
-    {
-        var regionCoord = sapi.WorldManager.MapRegionPosFromIndex2D(regionIdx);
+  private string GetDbFilePath()
+  {
+    string path = Path.Combine(GamePaths.DataPath, "Farseer");
+    GamePaths.EnsurePathExists(path);
+    return Path.Combine(path, sapi.World.SavegameIdentifier + ".db");
+  }
 
-        return new FarRegionData
-        {
-            RegionIndex = regionIdx,
-            RegionX = regionCoord.X,
-            RegionZ = regionCoord.Z,
-            RegionSize = sapi.WorldManager.RegionSize,
-            RegionMapSize = sapi.WorldManager.MapSizeX / sapi.WorldManager.RegionSize,
-            Heightmap = heightmap,
-        };
-    }
+  private FarRegionData CreateDataObject(long regionIdx, FarRegionHeightmap heightmap)
+  {
+    var regionCoord = sapi.WorldManager.MapRegionPosFromIndex2D(regionIdx);
 
-    public void Dispose()
+    return new FarRegionData
     {
-        this.db?.Dispose();
-    }
+      RegionIndex = regionIdx,
+      RegionX = regionCoord.X,
+      RegionZ = regionCoord.Z,
+      RegionSize = sapi.WorldManager.RegionSize,
+      RegionMapSize = sapi.WorldManager.MapSizeX / sapi.WorldManager.RegionSize,
+      Heightmap = heightmap,
+    };
+  }
+
+  public void Dispose()
+  {
+    db?.Dispose();
+    GC.SuppressFinalize(this);
+  }
 }

@@ -4,7 +4,7 @@ using Vintagestory.API.Client;
 using Vintagestory.API.MathTools;
 using Vintagestory.Client.NoObf;
 
-namespace Farseer;
+namespace Farseer.Client;
 
 public class FarRegionRenderer : IRenderer
 {
@@ -19,12 +19,11 @@ public class FarRegionRenderer : IRenderer
 
     public int RenderRange => 9999;
 
-    private FarseerModSystem modSystem;
-    private ICoreClientAPI capi;
-    private Dictionary<long, PerModelData> activeRegionModels = new Dictionary<long, PerModelData>();
+    private readonly FarseerModSystem modSystem;
+    private readonly ICoreClientAPI capi;
+    private readonly Dictionary<long, PerModelData> activeRegionModels = [];
 
-    private Matrixf modelMat = new Matrixf();
-    private float[] projectionMat = Mat4f.Create();
+    private readonly Matrixf modelMat = new();
     private IShaderProgram prog;
 
     private int farViewDistance = 3072;
@@ -38,15 +37,6 @@ public class FarRegionRenderer : IRenderer
         LoadShader();
 
         capi.Event.RegisterRenderer(this, EnumRenderStage.Opaque);
-
-        // NOTE: Some experiments with using the fog systems to create a better far terrain transition - so far no good reliable results
-        // var farFog = new AmbientModifier().EnsurePopulated();
-        // farFog.FogDensity = new WeightedFloat(0.005f, 1.0f);
-        // farFog.FogMin = new WeightedFloat(0.0f, 1.0f);
-        // farFog.FogColor = new WeightedFloatArray(new float[] {
-        //         mainColor.X,mainColor.Y,mainColor.Z
-        //     }, 1.0f);
-        //capi.Ambient.CurrentModifiers.Add("farfog", farFog);
     }
 
     public void Init()
@@ -59,7 +49,7 @@ public class FarRegionRenderer : IRenderer
             farViewDistance = GameMath.Min(farViewDistance, capi.World.Config.GetInt("maxFarViewDistance"));
         }
 
-        var clientMain = ((ClientMain)capi.World);
+        var clientMain = (ClientMain)capi.World;
         var mainCam = clientMain.MainCamera;
         var newZFar = GameMath.Max(3000, farViewDistance);
         mainCam.ZFar = newZFar;
@@ -82,17 +72,17 @@ public class FarRegionRenderer : IRenderer
         return result;
     }
 
-    private long RegionNeighbourIndex(long idx, int offsetX, int offsetZ, int regionMapSize)
+    private static long RegionNeighbourIndex(long idx, int offsetX, int offsetZ, int regionMapSize)
     {
         int rX = (int)(idx % regionMapSize);
         int rZ = (int)(idx / regionMapSize);
 
-        return (long)(rZ + offsetZ) * (long)regionMapSize + (long)(rX + offsetX);
+        return (long)(rZ + offsetZ) * regionMapSize + (rX + offsetX);
     }
 
     public void BuildRegion(FarRegionData sourceData, bool isRebuild = false)
     {
-        bool GridSizesMatch(FarRegionData regionA, FarRegionData regionB)
+        static bool GridSizesMatch(FarRegionData regionA, FarRegionData regionB)
         {
             return regionA.Heightmap.GridSize == regionB.Heightmap.GridSize;
         }
@@ -122,7 +112,7 @@ public class FarRegionRenderer : IRenderer
             {
                 mesh.xyz[xyz++] = vX * cellSize;
 
-                int sample = 0;
+                int sample;
 
                 if (vX == gridSize && vZ == gridSize && activeRegionModels.TryGetValue(southEastIdx, out PerModelData southEastData) && GridSizesMatch(sourceData, southEastData.SourceData))
                 {
@@ -230,6 +220,7 @@ public class FarRegionRenderer : IRenderer
     public void Dispose()
     {
         ClearLoadedRegions();
+        GC.SuppressFinalize(this);
     }
 
     public void OnRenderFrame(float deltaTime, EnumRenderStage stage)
@@ -250,7 +241,6 @@ public class FarRegionRenderer : IRenderer
 
         foreach (var regionModel in activeRegionModels.Values)
         {
-
             prog.Use();
 
             modelMat.Identity()
@@ -259,7 +249,6 @@ public class FarRegionRenderer : IRenderer
 
             prog.UniformMatrix("modelMatrix", modelMat.Values);
             prog.UniformMatrix("viewMatrix", rapi.CameraMatrixOriginf);
-            //prog.UniformMatrix("projectionMatrix", projectionMat);
             prog.UniformMatrix("projectionMatrix", rapi.CurrentProjectionMatrix);
 
             prog.Uniform("sunPosition", capi.World.Calendar.SunPositionNormalized);
@@ -270,9 +259,6 @@ public class FarRegionRenderer : IRenderer
             prog.Uniform("fogDensityIn", capi.Ambient.BlendedFogDensity);
             prog.Uniform("fogMinIn", capi.Ambient.BlendedFogMin);
             prog.Uniform("horizonFog", capi.Ambient.BlendedCloudDensity);
-
-            //prog.Uniform("flatFogDensity", capi.Ambient.BlendedFlatFogDensity);
-            //prog.Uniform("flatFogStart", capi.Ambient.BlendedFlatFogYPosForShader - (float)capi.World.Player.Entity.CameraPos.Y);
 
             prog.Uniform("skyTint", modSystem.Client.Config.SkyTint);
             prog.Uniform("colorTint", colorTintVec);
@@ -288,6 +274,5 @@ public class FarRegionRenderer : IRenderer
 
             prog.Stop();
         }
-        //rapi.Reset3DProjection();
     }
 }

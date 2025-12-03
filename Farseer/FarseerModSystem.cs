@@ -1,44 +1,46 @@
 ﻿using Vintagestory.API.Client;
 using Vintagestory.API.Server;
 using Vintagestory.API.Common;
+using Farseer.Client;
+using Farseer.Server;
 
 namespace Farseer;
 
 public class FarseerModSystem : ModSystem
 {
-    FarseerServer server;
-    FarseerClient client;
+  FarseerServer server;
+  FarseerClient client;
 
-    public FarseerServer Server => server;
-    public FarseerClient Client => client;
+  public FarseerServer Server => server;
+  public FarseerClient Client => client;
 
-    public const string MOD_CHANNEL_NAME = "farseer";
+  public const string MOD_CHANNEL_NAME = "farseer";
 
-    // Called on server and client
-    // Useful for registering block/entity classes on both sides
-    public override void Start(ICoreAPI api)
-    {
-        api.Network.RegisterChannel(MOD_CHANNEL_NAME)
-            .RegisterMessageType<FarseerEnable>()
-            .RegisterMessageType<FarseerDisable>()
-            .RegisterMessageType<FarRegionUnload>()
-            .RegisterMessageType<FarRegionData>();
-    }
+  // Called on server and client
+  // Useful for registering block/entity classes on both sides
+  public override void Start(ICoreAPI api)
+  {
+    api.Network.RegisterChannel(MOD_CHANNEL_NAME)
+        .RegisterMessageType<FarseerEnable>()
+        .RegisterMessageType<FarseerDisable>()
+        .RegisterMessageType<FarRegionUnload>()
+        .RegisterMessageType<FarRegionData>();
+  }
 
-    public override void StartServerSide(ICoreServerAPI api)
-    {
-        this.server = new FarseerServer(this, api);
-    }
+  public override void StartServerSide(ICoreServerAPI api)
+  {
+    server = new FarseerServer(this, api);
+  }
 
-    public override void StartClientSide(ICoreClientAPI api)
-    {
-        this.client = new FarseerClient(this, api);
-    }
+  public override void StartClientSide(ICoreClientAPI api)
+  {
+    client = new FarseerClient(this, api);
+  }
 
-    public override void Dispose()
-    {
-        server?.Dispose();
-        client?.Dispose();
-    }
+  public override void Dispose()
+  {
+    server?.Dispose();
+    client?.Dispose();
+  }
 
 }
