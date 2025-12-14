@@ -1,0 +1,81 @@
+{
+  "version": 1,
+  "file": "farseer-server.json",
+  "patches": {},
+  "settings": [
+    {
+      "type": "separator",
+      "title": "farseer:config-separator-main-title",
+      "weight": 0.1
+    },
+    {
+      "code": "MaxClientViewDistance",
+      "name": "MaxClientViewDistance",
+      "ingui": "farseer:config-setting-maxclientviewdistance-name",
+      "comment": "farseer:config-setting-maxclientviewdistance-comment",
+      "type": "integer",
+      "default": 4096,
+      "values": [
+        32,
+        64,
+        128,
+        256,
+        512,
+        1024,
+        2048,
+        4096,
+        8192,
+        16384
+      ],
+      "weight": 0.2
+    },
+    {
+      "code": "HeightmapGridSize",
+      "name": "HeightmapGridSize",
+      "ingui": "farseer:config-setting-heightmapgridsize-name",
+      "comment": "farseer:config-setting-heightmapgridsize-comment",
+      "type": "integer",
+      "default": 128,
+      "values": [
+        32,
+        64,
+        128,
+        256,
+        512
+      ],
+      "weight": 0.3
+    },
+    {
+      "code": "GenRealChunks",
+      "name": "GenRealChunks",
+      "ingui": "farseer:config-setting-genrealchunks-name",
+      "comment": "farseer:config-setting-genrealchunks-comment",
+      "type": "boolean",
+      "default": false,
+      "weight": 0.4
+    },
+    {
+      "code": "ChunkGenQueueThreshold",
+      "name": "ChunkGenQueueThreshold",
+      "ingui": "farseer:config-setting-chunkgenqueuethreshold-name",
+      "comment": "farseer:config-setting-chunkgenqueuethreshold-comment",
+      "type": "integer",
+      "default": 64,
+      "range": {
+        "min": 8,
+        "max": 2000,
+        "step": 2
+      },
+      "weight": 0.5
+    },
+    {
+      "code": "DisableProgressLogging",
+      "name": "DisableProgressLogging",
+      "ingui": "farseer:config-setting-disableprogresslogging-name",
+      "comment": "farseer:config-setting-disableprogresslogging-comment",
+      "type": "boolean",
+      "default": false,
+      "weight": 0.6
+    }
+  ]
+}
