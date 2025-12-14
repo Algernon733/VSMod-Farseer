@@ -239,40 +239,41 @@ public class FarRegionRenderer : IRenderer
             modSystem.Client.Config.ColorTintA
         );
 
+        prog.Use();
+
+        prog.UniformMatrix("viewMatrix", rapi.CameraMatrixOriginf);
+        prog.UniformMatrix("projectionMatrix", rapi.CurrentProjectionMatrix);
+
+        prog.Uniform("sunPosition", capi.World.Calendar.SunPositionNormalized);
+        prog.Uniform("sunColor", capi.World.Calendar.SunColor);
+        prog.Uniform("dayLight", Math.Max(0, capi.World.Calendar.DayLightStrength));
+
+        prog.Uniform("rgbaFogIn", capi.Ambient.BlendedFogColor);
+        prog.Uniform("fogDensityIn", capi.Ambient.BlendedFogDensity);
+        prog.Uniform("fogMinIn", capi.Ambient.BlendedFogMin);
+        prog.Uniform("horizonFog", capi.Ambient.BlendedCloudDensity);
+
+        prog.Uniform("skyTint", modSystem.Client.Config.SkyTint);
+        prog.Uniform("colorTint", colorTintVec);
+        prog.Uniform("lightLevelBias", modSystem.Client.Config.LightLevelBias);
+        prog.Uniform("fadeBias", modSystem.Client.Config.FadeBias);
+        prog.Uniform("globeEffect", modSystem.Client.Config.GlobeEffect);
+        prog.Uniform("seaLevel", capi.World.SeaLevel);
+
+        prog.Uniform("viewDistance", viewDistance);
+        prog.Uniform("farViewDistance", (float)farViewDistance);
+
         foreach (var regionModel in activeRegionModels.Values)
         {
-            prog.Use();
-
             modelMat.Identity()
                 .Translate(regionModel.Position.X, regionModel.Position.Y, regionModel.Position.Z)
                 .Translate(-camPos.X, -camPos.Y, -camPos.Z);
 
             prog.UniformMatrix("modelMatrix", modelMat.Values);
-            prog.UniformMatrix("viewMatrix", rapi.CameraMatrixOriginf);
-            prog.UniformMatrix("projectionMatrix", rapi.CurrentProjectionMatrix);
-
-            prog.Uniform("sunPosition", capi.World.Calendar.SunPositionNormalized);
-            prog.Uniform("sunColor", capi.World.Calendar.SunColor);
-            prog.Uniform("dayLight", Math.Max(0, capi.World.Calendar.DayLightStrength));
-
-            prog.Uniform("rgbaFogIn", capi.Ambient.BlendedFogColor);
-            prog.Uniform("fogDensityIn", capi.Ambient.BlendedFogDensity);
-            prog.Uniform("fogMinIn", capi.Ambient.BlendedFogMin);
-            prog.Uniform("horizonFog", capi.Ambient.BlendedCloudDensity);
-
-            prog.Uniform("skyTint", modSystem.Client.Config.SkyTint);
-            prog.Uniform("colorTint", colorTintVec);
-            prog.Uniform("lightLevelBias", modSystem.Client.Config.LightLevelBias);
-            prog.Uniform("fadeBias", modSystem.Client.Config.FadeBias);
-            prog.Uniform("globeEffect", modSystem.Client.Config.GlobeEffect);
-            prog.Uniform("seaLevel", capi.World.SeaLevel);
-
-            prog.Uniform("viewDistance", viewDistance);
-            prog.Uniform("farViewDistance", (float)farViewDistance);
 
             rapi.RenderMesh(regionModel.MeshRef);
 
-            prog.Stop();
         }
+        prog.Stop();
     }
 }
