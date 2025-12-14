@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Vintagestory.API.Client;
 using Vintagestory.API.MathTools;
+using Vintagestory.Client;
 using Vintagestory.Client.NoObf;
 
 namespace Farseer.Client;
@@ -225,6 +226,8 @@ public class FarRegionRenderer : IRenderer
 
     public void OnRenderFrame(float deltaTime, EnumRenderStage stage)
     {
+        capi.World.FrameProfiler.Enter("farseer-render");
+
         var rapi = capi.Render;
         if (rapi.FrameWidth == 0) return;
 
@@ -275,5 +278,7 @@ public class FarRegionRenderer : IRenderer
 
         }
         prog.Stop();
+
+        capi.World.FrameProfiler.Leave();
     }
 }
